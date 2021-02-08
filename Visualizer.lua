@@ -2,6 +2,26 @@ local RunService = game:GetService("RunService")
 
 local module = {}
 
+local function AlphaColorSequence(Sequence, Alpha)
+	local Keypoints = Sequence.Keypoints
+	local StartKeypoint, EndKeypoint = 1, #Keypoints
+
+	for i, Keypoint in ipairs(Keypoints) do
+		if Keypoint.Time >= Alpha then
+			EndKeypoint = Keypoint
+			StartKeypoint = Keypoints[math.max(1, i-1)]
+			break
+		end
+	end
+
+	local StartTime, EndTime = StartKeypoint.Time, EndKeypoint.Time
+	local StartValue, EndValue = StartKeypoint.Value, EndKeypoint.Value
+
+	local KeyframeAlpha = (Alpha - StartTime) / (EndTime - StartTime)
+
+	return StartValue:Lerp(EndValue, KeyframeAlpha)
+end
+
 function module.new(Frame, BarCount)
 
 	-- Determine settings
@@ -80,16 +100,32 @@ function module.new(Frame, BarCount)
 						Visualizer.VolumeBuffer[#Visualizer.VolumeBuffer] = nil
 					end
 
+					local Color = Visualizer.Color
+					local ColorType = typeof(Color)
+					
 					for i,Bar in ipairs(Visualizer.Bars) do
+						
+						local Alpha = math.clamp(
+							((Visualizer.VolumeBuffer[BAR_TO_BUFFER[i]] or 0)/400),
+							0.02, 1
+						)
+						
 						Bar:TweenSize(
 							UDim2.new(
 								BAR_SIZE,0,
-								math.clamp(
-									((Visualizer.VolumeBuffer[BAR_TO_BUFFER[i]] or 0)/400)*BAR_TO_MULTIPLIER[i],
-									0.02, 1),0
+								Alpha*BAR_TO_MULTIPLIER[i],0
 							),
 							Enum.EasingDirection.Out, Enum.EasingStyle.Linear, UPDATE_WAIT, true
 						)
+						
+						if Color then
+							if ColorType == "Color3" then
+								Bar.BackgroundColor3 = Color
+							elseif ColorType == "ColorSequence" then
+								Bar.BackgroundColor3 = AlphaColorSequence(Color, Alpha)
+							end
+						end
+						
 					end
 				end
 
